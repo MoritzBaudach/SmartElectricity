@@ -1,22 +1,24 @@
 package de.farberg.spark.examples.streaming;
 
 import java.io.FileReader;
-import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVRecord;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.StorageLevels;
+import org.apache.spark.api.java.function.Function;
+import org.apache.spark.api.java.function.Function2;
+import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.streaming.Durations;
-import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaReceiverInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,91 +28,174 @@ import scala.Tuple2;
 public class SumoStreamingDemo {
 	private static final String host = "localhost";
 
-	public static final String[] CSV_HEADERS_SUMO_TRACI_OUT = { "timestamp", "vehicle-id", "vehicle-type", "location-lat", "location-long",
-			"edge-id", "edge-name", "speed", "fuel-consumption", "co2-emission", "co-emission", "hc-emission", "noise-emission",
-			"nox-emission", "pmx-emission" };
-
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) throws Exception {
 		Logging.setLoggingDefaults();
 		Logger log = LoggerFactory.getLogger(SumoStreamingDemo.class);
 
-		String fileName = "src/main/resources/sumo-sim-out.csv";
+		String fileName = "src/main/resources/mockData.json";
 
-		// Set up the parsing of the CSV file
-		log.info("Reading file {}", fileName);
-		Iterator<CSVRecord> csvIterator = CSVFormat.EXCEL.withHeader(CSV_HEADERS_SUMO_TRACI_OUT)
-				.withSkipHeaderRecord()
-				.withDelimiter(',')
-				.withQuote('"')
-				.parse(new FileReader(fileName))
-				.iterator();
+		JSONParser parser = new JSONParser();
+		try {
 
-		// Create a server socket that streams the contents of the file
-		AtomicInteger lastTimeStamp = new AtomicInteger(-1);
-		ServerSocketSource<String> dataSource = new ServerSocketSource<>(() -> {
-			// If no more lines are there, return null
-			if (!csvIterator.hasNext()) {
-				log.info("CSV file has ended.");
-				return null;
-			}
+			//Prepare all data for streaming
+			Object obj = parser.parse(new FileReader(fileName));
+			JSONArray jsonArray = (JSONArray) obj;
+			//JSONObject jsonObject = (JSONObject)obj;
 
-			// Read the next line
-			CSVRecord record = csvIterator.next();
+			ArrayList<HouseHold> houseHolds = new ArrayList<>();
 
-			// Sleep for some time if the time stamp in the file changes
-			int timeStamp = Integer.parseInt(record.get("timestamp"));
-			if (timeStamp > lastTimeStamp.get()) {
-				log.debug("Skipping to new timestamp {} (was {})", timeStamp, lastTimeStamp);
-				lastTimeStamp.set(timeStamp);
+			for (Object aObject : jsonArray) {
 
-				try {
-					Thread.sleep(1000);
-				} catch (InterruptedException e) {
-					log.warn("" + e, e);
+				HouseHold tempHousehold = new HouseHold();
+				tempHousehold.deviceMessages = new ArrayList<>();
+
+				JSONObject jsonObject = (JSONObject) aObject;    //one household
+				String householdID = (String) jsonObject.get("household_id"); //save household id
+				String regionID = (String) jsonObject.get("region_id").toString(); //save region id
+				JSONArray devices = (JSONArray) jsonObject.get("devices");//device list of one household
+
+				for (Object aDevice : devices) {
+					JSONObject mDevice = (JSONObject) aDevice; //one device
+					String deviceID = (String) mDevice.get("id"); //save device id
+					String duration = (String) mDevice.get("durationMinutes").toString(); //save duration
+					Boolean readyState = (Boolean) mDevice.get("stoppable");
+					String consumptionPerUsage = (String) mDevice.get("consumptionPerUsage").toString();
+
+					String currentDeviceMessage = "regionID=" + regionID + ",householdID=" + householdID + ",deviceID=" + deviceID + ",readystate=" + readyState.toString() + ",consumption=" + consumptionPerUsage + ",duration=" + duration;
+					tempHousehold.deviceMessages.add(currentDeviceMessage);
 				}
+				houseHolds.add(tempHousehold);
 			}
 
-			// Return the data set as fieldName=value,fieldName=value,... (e.g., vehicle-id=1,co2-emission=123.456,...)
-			return Arrays.stream(CSV_HEADERS_SUMO_TRACI_OUT)
-					.map(fieldName -> fieldName + "=" + record.get(fieldName))
-					.collect(Collectors.joining(","));
-		});
+
+			//create threads for each household that are sending the data
+
+			//this is for creating multiple sending threads
+			/*
+			for(HouseHold houseHold : houseHolds) {
+
+				Iterator iterator = houseHold.deviceMessages.iterator();
+
+				ServerSocketSource<String> serverSocketSource = new ServerSocketSource<String>(() -> {
+
+					//return null if there is no more data available
+					if (!iterator.hasNext()) {
+						log.info("Streaming of mock data for this household finished.");
+						return null;
+					}
+
+					// Read the next line
+					return (String) iterator.next();
+				}, () -> 100);
+			}*/
+
+
+			//single thread sending
+
+			//combine all messages into one arraylist
+			ArrayList<String> messages = new ArrayList<>();
+			for (HouseHold tempHouseHold : houseHolds) {
+				messages.addAll(tempHouseHold.deviceMessages);
+			}
+
+			Iterator iterator = messages.iterator();
+			//create sending object
+			ServerSocketSource dataSource = new ServerSocketSource(()->{
+
+				//return null if there is no more data available
+				if (!iterator.hasNext()) {
+					log.info("Streaming of mock data for this household finished.");
+					return null;
+				}
+
+				// Read the next line
+				return (String) iterator.next();
+
+			},()->100);
+
+
+
+		//get data
 
 		// Create the context with a 1 second batch size
 		SparkConf sparkConf = new SparkConf().setAppName("JavaNetworkWordCount").setMaster("local[2]");
 		JavaStreamingContext ssc = new JavaStreamingContext(sparkConf, Durations.seconds(1));
 
+		//assure that port is already set before listening to the port
+		while(!dataSource.isRunning()){
+			Thread.sleep(1000);
+		}
+
 		// Create a JavaReceiverInputDStream on target ip:port and count the words in input stream of \n delimited text
 		JavaReceiverInputDStream<String> lines = ssc.socketTextStream(host, dataSource.getLocalPort(), StorageLevels.MEMORY_AND_DISK_SER);
 
-		// Map entries to <vehicle-id, Map<key, value> >-pairs (e.g., (1, < (co2-emission, 123.456), ...))
+		//do perform
+		//prepare key value pairs
+
+
+		//"regionID=" + regionID + ",householdID=" + householdID + ",deviceID=" + deviceID + ",readystate=" + readyState.toString() + ",consumption=" + consumptionPerUsage + "duration=" + duration
 		@SuppressWarnings("resource")
 		JavaPairDStream<String, Map<String, String>> mappedLines = lines.mapToPair(line -> {
 			Map<String, String> keyValueMap = Arrays.stream(line.split(","))
 					.collect(Collectors.toMap(entry -> entry.split("=")[0], entry -> entry.split("=")[1]));
 
-			return new Tuple2<>(keyValueMap.get("vehicle-id"), keyValueMap);
+			return new Tuple2<>(keyValueMap.get("householdID"), keyValueMap);
 		});
 
-		// Map entries to <vehicle-id, co2-emission>, e.g., (1, 123.456), ...
-		JavaPairDStream<String, Double> co2Map = mappedLines
-				.mapToPair(e -> new Tuple2<>(e._1, Double.parseDouble(e._2.get("co2-emission"))));
+		//check if entity is switchable -> means that its a device
+			JavaPairDStream<String, Map<String, String>> devices = mappedLines.filter(new Function<Tuple2<String, Map<String, String>>, Boolean>() {
+			@Override
+			public Boolean call(Tuple2<String, Map<String, String>> stringMapTuple2) throws Exception {
+				return stringMapTuple2._2.get("readystate").equals("true");
+			}
+		});
 
-		// Only take the last entry per car in this time-frame
-		JavaPairDStream<String, Double> co2PerCar = co2Map.reduceByKey((a, b) -> b);
+		//create key value pairs for the devices
+		JavaPairDStream<String, String> device= devices.mapToPair(new PairFunction<Tuple2<String,Map<String,String>>, String, String>() {
+			@Override
+			public Tuple2<String, String> call(Tuple2<String, Map<String, String>> stringMapTuple2) throws Exception {
+				Map<String,String> localMap = stringMapTuple2._2;
+				String householdId = localMap.get("householdID");
+				String deviceId = localMap.get("deviceID");
+				String consumptionPerUsage = localMap.get("consumption");
 
-		// Compute the CO2 sum during this batch interval
-		JavaDStream<Double> co2sum = co2PerCar.map(entry -> entry._2).reduce((a, b) -> a + b);
+				String key = householdId + "_" + deviceId;
+				return new Tuple2<String, String>(key, consumptionPerUsage);
+			}
+		});
 
-		// Print the accumulated CO2 emissions for all cars
-		co2sum.print();
 
-		// Start the computation
+		JavaPairDStream<String, String> latestDevice = device.reduceByKey(new Function2<String, String, String>() {
+			@Override
+			public String call(String s, String s2) throws Exception {
+				return s2;
+			}
+		});
+
+			//latestDevice.print();
+
+
+		//JavaDStream<String> words = lines.flatMap(x -> Lists.newArrayList(x.split(" ")));
+
+		//JavaPairDStream<String, Integer> wordCounts = words.mapToPair(word -> new Tuple2<String, Integer>(word, 1)).reduceByKey((i1, i2) -> i1 + i2);
+
+
+		//clean up
+		latestDevice.print();
 		ssc.start();
 
 		ssc.awaitTermination();
 		ssc.close();
 		dataSource.stop();
-	}
 
+
+	}catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+}
+
+
+class HouseHold{
+	ArrayList<String> deviceMessages;
 }
