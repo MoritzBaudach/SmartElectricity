@@ -54,7 +54,7 @@ public class SumoStreamingDemo {
 				String regionID = (String) jsonObject.get("region_id").toString(); //save region id
 				JSONArray devices = (JSONArray) jsonObject.get("devices");//device list of one household
 
-				int solarpanelMax = (int) jsonObject.get("solarpanelMax"); //max production of a solarpanel at best conditions
+				int solarpanelMax = ((Long)jsonObject.get("solarpanelMax")).intValue(); //max production of a solarpanel at best conditions
 				JSONArray solarProductionArray = (JSONArray) jsonObject.get("solarpanelProduction");
 
 				//get data from devices
@@ -74,9 +74,9 @@ public class SumoStreamingDemo {
 				ArrayList<String> solarMessages = new ArrayList<>();
 				for(Object temp : solarProductionArray){
 					JSONObject solarDataPoint = (JSONObject) temp;
-					int solarDatasetCounter = (int)solarDataPoint.get("counter");
+					int solarDatasetCounter = ((Long)solarDataPoint.get("counter")).intValue();
 					String timeStamp = (String) solarDataPoint.get("timestamp");
-					double watts = (Double) solarDataPoint.get("watt");
+					double watts = Double.parseDouble(solarDataPoint.get("watt").toString());
 					String currentSolarMessage = "regionID=" + regionID + ",householdID=" + householdID + ",maxoutput="+solarpanelMax+",counter="+solarDatasetCounter+",timestamp="+timeStamp+",watt:"+watts;
 					solarMessages.add(currentSolarMessage);
 				}
@@ -84,7 +84,7 @@ public class SumoStreamingDemo {
 				// TODO: 27.07.2016 If we have time we should change to an intelligent way for mixing both datasets
 				//mix solar and device data
 				tempHousehold.deviceMessages.addAll(deviceMessages);
-				tempHousehold.deviceMessages.addAll(solarMessages);
+				//tempHousehold.deviceMessages.addAll(solarMessages);
 
 
 				houseHolds.add(tempHousehold);
@@ -156,7 +156,6 @@ public class SumoStreamingDemo {
 		//prepare key value pairs
 
 		//differentiate between device and solarpanel data
-			// TODO: 27.07.2016 hier aufgehört
 		//JavaPairDStream<String, String>   lines.filter((Function<String, Boolean>) s -> s.contains("maxoutput"));
 			
 
