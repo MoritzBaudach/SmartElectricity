@@ -1,16 +1,21 @@
 package de.farberg.spark.examples.streaming;
 
+import java.io.File;
 import java.io.FileReader;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.Map;
+import java.nio.file.Paths;
+import java.util.*;
 import java.util.stream.Collectors;
 
+import com.google.common.base.*;
+import com.google.common.base.Optional;
+import com.google.common.io.Files;
+import de.farberg.spark.examples.logic.Controller;
+import de.farberg.spark.examples.logic.Household;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.StorageLevels;
 import org.apache.spark.api.java.function.*;
+import org.apache.spark.api.java.function.Function;
 import org.apache.spark.rdd.RDD;
 import org.apache.spark.streaming.Durations;
 import org.apache.spark.streaming.Time;
@@ -45,17 +50,14 @@ public class SumoStreamingDemo {
 			JSONArray jsonArray = (JSONArray) obj;
 			//JSONObject jsonObject = (JSONObject)obj;
 
-			ArrayList<HouseHold> houseHolds = new ArrayList<>();
-
 			for (Object aObject : jsonArray) {
-
-				HouseHold tempHousehold = new HouseHold();
-				tempHousehold.deviceMessages = new ArrayList<>();
 
 				JSONObject jsonObject = (JSONObject) aObject;    //one household
 				String householdID = (String) jsonObject.get("household_id"); //save household id
 				String regionID = (String) jsonObject.get("region_id").toString(); //save region id
 				JSONArray devices = (JSONArray) jsonObject.get("devices");//device list of one household
+
+                Household tempHousehold = new Household(householdID, regionID);
 
 				int solarpanelMax = ((Long)jsonObject.get("solarpanelMax")).intValue(); //max production of a solarpanel at best conditions
 				JSONArray solarProductionArray = (JSONArray) jsonObject.get("solarpanelProduction");
@@ -121,9 +123,6 @@ public class SumoStreamingDemo {
 				}else{
 
 					//mix both data
-					if(allDeviceMessages.size()>1){
-						System.out.println("Breakpoint");
-					}
 
 					for(int i = 0; i<deviceMessages.size();i++){
 						int deviceEndCount = deviceCount+allDeviceMessages.size();
@@ -139,7 +138,7 @@ public class SumoStreamingDemo {
 				}
 
 
-				houseHolds.add(tempHousehold);
+                Controller.households.add(tempHousehold);
 			}
 
 			System.out.println("Finished preparation of mock data");
@@ -171,7 +170,7 @@ public class SumoStreamingDemo {
 
 			//combine all messages into one arraylist
 			ArrayList<String> messages = new ArrayList<>();
-			for (HouseHold tempHouseHold : houseHolds) {
+			for (Household tempHouseHold : Controller.households) {
 				messages.addAll(tempHouseHold.deviceMessages);
 			}
 
@@ -196,6 +195,9 @@ public class SumoStreamingDemo {
 		// Create the context with a 1 second batch size
 		SparkConf sparkConf = new SparkConf().setAppName("JavaNetworkWordCount").setMaster("local[2]");
 		JavaStreamingContext ssc = new JavaStreamingContext(sparkConf, Durations.seconds(1));
+
+			ssc.checkpoint(Files.createTempDir().getAbsolutePath());
+
 
 		//assure that port is already set before listening to the port
 		while(!dataSource.isRunning()){
@@ -277,9 +279,45 @@ public class SumoStreamingDemo {
             //Unite both Streams
             JavaPairDStream deviceAndSolarStream = latestDevice.union(latestSolarPanel);
 
+            //we just keep the last state
+            JavaPairDStream<String, Double> updateStream = deviceAndSolarStream.updateStateByKey(new Function2<List<Double>, Optional<Double>, Optional<Double>>() {
+				@Override
+				public Optional<Double> call(List<Double> list, Optional<Double> optional) throws Exception {
+					return optional;
+				}
+			});
+
+			updateStream.print();
+            /*
+            //updatefunction
+            updateStream.foreachRDD((rdd)-> {
+               rdd.foreach((k)->{
+                   System.out.println("Ein Update!");
+                   System.out.println(k._2);
+               });
+            });
+
+
+            */
+
+            //save updates to the state
+
+
+
+            /*
+
+            stateStream.updateStateByKey((list,optional)->{
+                return null;
+            });
+
+
+            */
+
+
+
 
             //clean up
-            deviceAndSolarStream.print();
+            //deviceAndSolarStream.print();
 
 
 
@@ -297,9 +335,4 @@ public class SumoStreamingDemo {
             e.printStackTrace();
         }
     }
-}
-
-
-class HouseHold {
-    ArrayList<String> deviceMessages;
 }
