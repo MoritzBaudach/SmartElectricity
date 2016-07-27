@@ -8,11 +8,12 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.StorageLevels;
-import org.apache.spark.api.java.function.Function;
-import org.apache.spark.api.java.function.Function2;
-import org.apache.spark.api.java.function.PairFunction;
+import org.apache.spark.api.java.function.*;
+import org.apache.spark.rdd.RDD;
 import org.apache.spark.streaming.Durations;
+import org.apache.spark.streaming.Time;
 import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaReceiverInputDStream;
@@ -204,11 +205,6 @@ public class SumoStreamingDemo {
             // Create a JavaReceiverInputDStream on target ip:port and count the words in input stream of \n delimited text
             JavaReceiverInputDStream<String> lines = ssc.socketTextStream(host, dataSource.getLocalPort(), StorageLevels.MEMORY_AND_DISK_SER);
 
-            //do perform
-            //prepare key value pairs
-
-            //differentiate between device and solarpanel data
-            //JavaPairDStream<String, String>   lines.filter((Function<String, Boolean>) s -> s.contains("maxoutput"));
 
             //show line
             //lines.print();
@@ -217,14 +213,11 @@ public class SumoStreamingDemo {
             JavaDStream<String> mappedDevices = lines.filter((s) -> s.contains("deviceID"));
             JavaDStream<String> mappedSolarPanels = lines.filter((s) -> s.contains("maxoutput"));
 
-            mappedDevices.print();
-            mappedSolarPanels.print();
 
-            //mappedSolarPanels.print();
+
             //SOLARPANELS
             //
             //
-
            JavaPairDStream<String, Map<String, String>> mappedSolarPanelLines = mappedSolarPanels.mapToPair(line -> {
                 Map<String, String> keyValueMap = Arrays.stream(line.split(","))
                         .collect(Collectors.toMap(entry -> entry.split("=")[0], entry -> entry.split("=")[1]));
@@ -281,10 +274,17 @@ public class SumoStreamingDemo {
             //If the same device streams several times before the micro batch processing, only the latest device message is used
             JavaPairDStream<String, String> latestDevice = device.reduceByKey((a, b) -> b);
 
+            //Unite both Streams
+            JavaPairDStream deviceAndSolarStream = latestDevice.union(latestSolarPanel);
+
 
             //clean up
-            latestDevice.print();
-            latestSolarPanel.print();
+            deviceAndSolarStream.print();
+
+
+
+
+
             ssc.start();
 
             ssc.awaitTermination();
