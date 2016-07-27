@@ -13,6 +13,7 @@ import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.streaming.Durations;
+import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaReceiverInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
@@ -84,7 +85,7 @@ public class SumoStreamingDemo {
 				// TODO: 27.07.2016 If we have time we should change to an intelligent way for mixing both datasets
 				//mix solar and device data
 				tempHousehold.deviceMessages.addAll(deviceMessages);
-				//tempHousehold.deviceMessages.addAll(solarMessages);
+				tempHousehold.deviceMessages.addAll(solarMessages);
 
 
 				houseHolds.add(tempHousehold);
@@ -161,17 +162,24 @@ public class SumoStreamingDemo {
 		//show line
 		lines.print();
 
+		//Devices and Solar Panels are streamed to the same socket - therefore we need to filter them beforehead
+		JavaDStream<String> mappedDevices = lines.filter((s) -> s.contains("deviceID"));
+		JavaDStream<String> mappedSolarPanels = lines.filter((s)-> s.contains("maxoutput"));
+
+
 		//"regionID=" + regionID + ",householdID=" + householdID + ",deviceID=" + deviceID + ",readystate=" + readyState.toString() + ",consumption=" + consumptionPerUsage + "duration=" + duration
 		@SuppressWarnings("resource")
-		JavaPairDStream<String, Map<String, String>> mappedLines = lines.mapToPair(line -> {
+		JavaPairDStream<String, Map<String, String>> mappedDeviceLines = mappedDevices.mapToPair(line -> {
 			Map<String, String> keyValueMap = Arrays.stream(line.split(","))
 					.collect(Collectors.toMap(entry -> entry.split("=")[0], entry -> entry.split("=")[1]));
 
 			return new Tuple2<>(keyValueMap.get("householdID"), keyValueMap);
 		});
 
+
+
 		//we are only interested in devices that are switchable
-			JavaPairDStream<String, Map<String, String>> devices = mappedLines.filter(new Function<Tuple2<String, Map<String, String>>, Boolean>() {
+			JavaPairDStream<String, Map<String, String>> devices = mappedDeviceLines.filter(new Function<Tuple2<String, Map<String, String>>, Boolean>() {
 			@Override
 			public Boolean call(Tuple2<String, Map<String, String>> stringMapTuple2) throws Exception {
 				return stringMapTuple2._2.get("readystate").equals("true");
@@ -192,13 +200,8 @@ public class SumoStreamingDemo {
 			}
 		});
 
-
-		JavaPairDStream<String, String> latestDevice = device.reduceByKey(new Function2<String, String, String>() {
-			@Override
-			public String call(String s, String s2) throws Exception {
-				return s2;
-			}
-		});
+		//If the same device streams several times before the micro batch processing, only the latest device message is used
+		JavaPairDStream<String, String> latestDevice = device.reduceByKey((a,b) -> b);
 
 			//latestDevice.print();
 
