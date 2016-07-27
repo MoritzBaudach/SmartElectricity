@@ -92,6 +92,8 @@ public class SparkStreamingWordCount {
 		ssc.awaitTermination();
 		ssc.close();
 		dataSource.stop();
+
+		System.out.println("Demo finished!");
 	}
 
 

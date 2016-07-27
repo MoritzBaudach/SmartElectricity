@@ -34,7 +34,7 @@ public class ServerSocketSource<T> {
 
 	private void createAndStartThread(){
 		this.worker = new Thread(()->{
-			System.out.println("Worker is about to get work!");
+			System.out.println("Initialize sender");
 			try{
 				ServerSocket serverSocket = new ServerSocket(getCurrentPortCounter());
 				this.localPort = serverSocket.getLocalPort();

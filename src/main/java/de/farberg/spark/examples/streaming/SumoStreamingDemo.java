@@ -1,7 +1,10 @@
 package de.farberg.spark.examples.streaming;
 
 import java.io.FileReader;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.apache.spark.SparkConf;
@@ -24,75 +27,127 @@ import de.uniluebeck.itm.util.logging.Logging;
 import scala.Tuple2;
 
 public class SumoStreamingDemo {
-    private static final String host = "localhost";
+	private static final String host = "localhost";
 
-    public static void main(String[] args) throws Exception {
-        Logging.setLoggingDefaults();
-        Logger log = LoggerFactory.getLogger(SumoStreamingDemo.class);
+	public static void main(String[] args) throws Exception {
+		Logging.setLoggingDefaults();
+		Logger log = LoggerFactory.getLogger(SumoStreamingDemo.class);
 
-        String fileName = "src/main/resources/mockData.json";
+		String fileName = "src/main/resources/mockData.json";
 
-        JSONParser parser = new JSONParser();
-        try {
+		JSONParser parser = new JSONParser();
+		try {
+			System.out.println("Start with preparation of mock data");
 
-            //Prepare all data for streaming
-            Object obj = parser.parse(new FileReader(fileName));
-            JSONArray jsonArray = (JSONArray) obj;
-            //JSONObject jsonObject = (JSONObject)obj;
+			//Prepare all data for streaming
+			Object obj = parser.parse(new FileReader(fileName));
+			JSONArray jsonArray = (JSONArray) obj;
+			//JSONObject jsonObject = (JSONObject)obj;
 
-            ArrayList<HouseHold> houseHolds = new ArrayList<>();
+			ArrayList<HouseHold> houseHolds = new ArrayList<>();
 
-            for (Object aObject : jsonArray) {
+			for (Object aObject : jsonArray) {
 
-                HouseHold tempHousehold = new HouseHold();
-                tempHousehold.deviceMessages = new ArrayList<>();
+				HouseHold tempHousehold = new HouseHold();
+				tempHousehold.deviceMessages = new ArrayList<>();
 
-                JSONObject jsonObject = (JSONObject) aObject;    //one household
-                String householdID = (String) jsonObject.get("household_id"); //save household id
-                String regionID = (String) jsonObject.get("region_id").toString(); //save region id
-                JSONArray devices = (JSONArray) jsonObject.get("devices");//device list of one household
+				JSONObject jsonObject = (JSONObject) aObject;    //one household
+				String householdID = (String) jsonObject.get("household_id"); //save household id
+				String regionID = (String) jsonObject.get("region_id").toString(); //save region id
+				JSONArray devices = (JSONArray) jsonObject.get("devices");//device list of one household
 
-                int solarpanelMax = ((Long) jsonObject.get("solarpanelMax")).intValue(); //max production of a solarpanel at best conditions
-                JSONArray solarProductionArray = (JSONArray) jsonObject.get("solarpanelProduction");
+				int solarpanelMax = ((Long)jsonObject.get("solarpanelMax")).intValue(); //max production of a solarpanel at best conditions
+				JSONArray solarProductionArray = (JSONArray) jsonObject.get("solarpanelProduction");
 
-                //get data from devices
-                ArrayList<String> deviceMessages = new ArrayList<>();
-                for (Object aDevice : devices) {
-                    JSONObject mDevice = (JSONObject) aDevice; //one device
-                    String deviceID = (String) mDevice.get("id"); //save device id
-                    String duration = (String) mDevice.get("durationMinutes").toString(); //save duration
-                    Boolean readyState = (Boolean) mDevice.get("stoppable");
-                    String consumptionPerUsage = (String) mDevice.get("consumptionPerUsage").toString();
+				//get data from devices
+				ArrayList<ArrayList<String>> allDeviceMessages = new ArrayList<>();
+				for (Object aDevice : devices) {
+					ArrayList<String> messagesOfOneDevice = new ArrayList<>();
+					JSONObject mDevice = (JSONObject) aDevice; //one device
+					String deviceID = (String) mDevice.get("id"); //save device id
+					String duration = (String) mDevice.get("durationMinutes").toString(); //save duration
+					String consumptionPerUsage = (String) mDevice.get("consumptionPerUsage").toString();
+                    JSONArray deviceStati = (JSONArray) mDevice.get("status");
 
-                    String currentDeviceMessage = "regionID=" + regionID + ",householdID=" + householdID + ",deviceID=" + deviceID + ",readystate=" + readyState.toString() + ",consumption=" + consumptionPerUsage + ",duration=" + duration;
-                    deviceMessages.add(currentDeviceMessage);
-                }
+                    for(Object aStatus : deviceStati){
+                        JSONObject aStatusJson = (JSONObject)aStatus;
+                       Boolean readyState = (Boolean) aStatusJson.get("readyState");
+                       messagesOfOneDevice.add("regionID=" + regionID + ",householdID=" + householdID + ",deviceID=" + deviceID + ",readystate=" + readyState.toString() + ",consumption=" + consumptionPerUsage + ",duration=" + duration);
+                    }
 
-                //get data from solarpanels
-                ArrayList<String> solarMessages = new ArrayList<>();
-                for (Object temp : solarProductionArray) {
-                    JSONObject solarDataPoint = (JSONObject) temp;
-                    int solarDatasetCounter = ((Long) solarDataPoint.get("counter")).intValue();
-                    String timeStamp = (String) solarDataPoint.get("timestamp");
-                    double watts = Double.parseDouble(solarDataPoint.get("watt").toString());
-                    String currentSolarMessage = "regionID=" + regionID + ",householdID=" + householdID + ",maxoutput=" + solarpanelMax + ",counter=" + solarDatasetCounter + ",timestamp=" + timeStamp + ",watt=" + watts;
-                    solarMessages.add(currentSolarMessage);
-                }
+                    //add device array to array of all devices
+					allDeviceMessages.add(messagesOfOneDevice);
+				}
 
-                // TODO: 27.07.2016 If we have time we should change to an intelligent way for mixing both datasets
-                //mix solar and device data
-                tempHousehold.deviceMessages.addAll(deviceMessages);
-                tempHousehold.deviceMessages.addAll(solarMessages);
+				//merge messages from all devices -> we can assume that there are the same amount of messages all the time
+				ArrayList<String> deviceMessages = new ArrayList<>();
+				for(int i = 0; i < (allDeviceMessages.get(0)).size(); i++){
+					for(ArrayList<String> reference : allDeviceMessages){
+						deviceMessages.add(reference.get(i));
+					}
+				}
+
+				//get data from solarpanels
+				ArrayList<String> solarMessages = new ArrayList<>();
+				for(Object temp : solarProductionArray){
+					JSONObject solarDataPoint = (JSONObject) temp;
+					int solarDatasetCounter = ((Long)solarDataPoint.get("counter")).intValue();
+					String timeStamp = (String) solarDataPoint.get("timestamp");
+					double watts = Double.parseDouble(solarDataPoint.get("watt").toString());
+					solarMessages.add("regionID=" + regionID + ",householdID=" + householdID + ",maxoutput="+solarpanelMax+",counter="+solarDatasetCounter+",timestamp="+timeStamp+",watt="+watts);
+				}
 
 
-                houseHolds.add(tempHousehold);
-            }
+				//mix solar and device data
+				//determine which datastructure is bigger
+				int deviceCount=0;
+				if(deviceMessages.size()>solarMessages.size()){
+
+					//mix both data
+					for(int i = 0; i<solarMessages.size();i++){
+						int deviceEndCount = deviceCount+allDeviceMessages.size();
+						while(deviceCount<deviceEndCount){
+							tempHousehold.deviceMessages.add(deviceMessages.get(deviceCount));
+							deviceCount++;
+						}
+						tempHousehold.deviceMessages.add(solarMessages.get(i));
+					}
+
+					//add the rest to the array
+					tempHousehold.deviceMessages.addAll(deviceMessages.subList(solarMessages.size(),deviceMessages.size()));
 
 
-            //create threads for each household that are sending the data
+				}else{
 
-            //this is for creating multiple sending threads
-            /*
+					//mix both data
+					if(allDeviceMessages.size()>1){
+						System.out.println("Breakpoint");
+					}
+
+					for(int i = 0; i<deviceMessages.size();i++){
+						int deviceEndCount = deviceCount+allDeviceMessages.size();
+						while(deviceCount<deviceEndCount){
+							tempHousehold.deviceMessages.add(deviceMessages.get(deviceCount));
+							deviceCount++;
+						}
+						tempHousehold.deviceMessages.add(solarMessages.get(i));
+					}
+
+					//add the rest to the array
+					tempHousehold.deviceMessages.addAll(solarMessages.subList(deviceMessages.size(),solarMessages.size()));
+				}
+
+
+				houseHolds.add(tempHousehold);
+			}
+
+			System.out.println("Finished preparation of mock data");
+
+
+			//create threads for each household that are sending the data
+
+			//this is for creating multiple sending threads
+			/*
 			for(HouseHold houseHold : houseHolds) {
 
 				Iterator iterator = houseHold.deviceMessages.iterator();
@@ -111,40 +166,40 @@ public class SumoStreamingDemo {
 			}*/
 
 
-            //single thread sending
+			//single thread sending
 
-            //combine all messages into one arraylist
-            ArrayList<String> messages = new ArrayList<>();
-            for (HouseHold tempHouseHold : houseHolds) {
-                messages.addAll(tempHouseHold.deviceMessages);
-            }
+			//combine all messages into one arraylist
+			ArrayList<String> messages = new ArrayList<>();
+			for (HouseHold tempHouseHold : houseHolds) {
+				messages.addAll(tempHouseHold.deviceMessages);
+			}
 
-            Iterator iterator = messages.iterator();
-            //create sending object
-            ServerSocketSource dataSource = new ServerSocketSource(() -> {
+			Iterator iterator = messages.iterator();
+			//create sending object
+			ServerSocketSource dataSource = new ServerSocketSource(()->{
 
-                //return null if there is no more data available
-                if (!iterator.hasNext()) {
-                    log.info("Streaming finished!");
-                    return null;
-                }
+				//return null if there is no more data available
+				if (!iterator.hasNext()) {
+					log.info("Streaming finished!");
+					return null;
+				}
 
-                // Read the next line
-                return (String) iterator.next();
+				// Read the next line
+				return (String) iterator.next();
 
-            }, () -> 100);
+			},()->100);
 
 
             //get data
 
-            // Create the context with a 1 second batch size
-            SparkConf sparkConf = new SparkConf().setAppName("JavaNetworkWordCount").setMaster("local[2]");
-            JavaStreamingContext ssc = new JavaStreamingContext(sparkConf, Durations.seconds(1));
+		// Create the context with a 1 second batch size
+		SparkConf sparkConf = new SparkConf().setAppName("JavaNetworkWordCount").setMaster("local[2]");
+		JavaStreamingContext ssc = new JavaStreamingContext(sparkConf, Durations.seconds(1));
 
-            //assure that port is already set before listening to the port
-            while (!dataSource.isRunning()) {
-                Thread.sleep(1000);
-            }
+		//assure that port is already set before listening to the port
+		while(!dataSource.isRunning()){
+			Thread.sleep(1000);
+		}
 
             // Create a JavaReceiverInputDStream on target ip:port and count the words in input stream of \n delimited text
             JavaReceiverInputDStream<String> lines = ssc.socketTextStream(host, dataSource.getLocalPort(), StorageLevels.MEMORY_AND_DISK_SER);
@@ -236,6 +291,7 @@ public class SumoStreamingDemo {
             ssc.close();
             dataSource.stop();
 
+		System.out.println("Demo finished");
 
         } catch (Exception e) {
             e.printStackTrace();
