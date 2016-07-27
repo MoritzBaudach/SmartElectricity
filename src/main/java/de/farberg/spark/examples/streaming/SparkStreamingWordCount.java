@@ -3,9 +3,9 @@ package de.farberg.spark.examples.streaming;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import com.google.common.base.Supplier;
-import org.apache.avro.generic.GenericData;
+import com.google.common.collect.Iterables;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.StorageLevels;
 import org.apache.spark.api.java.function.Function;
@@ -17,36 +17,29 @@ import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaReceiverInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 
-import com.google.common.collect.Lists;
-
-import org.codehaus.janino.Java;
 import scala.Tuple2;
 
 public class SparkStreamingWordCount {
 	private static final String host = "localhost";
-	public static ArrayList<String> ar;
 
 	public static void main(String[] args) throws FileNotFoundException {
 
-		ar = new ArrayList<String>();
+		ArrayList<String> ar = new ArrayList<String>();
 		ar.add("2349,123123123,789789,true");
 		ar.add("2200,123123123,789789,true");
+		ar.add("2777,123123125,789789,true");
+
+		Iterator<String> infiniteIterator = Iterables.cycle(ar).iterator();
 
 		java.util.function.Supplier<String> s = new java.util.function.Supplier<String>() {
 			@Override
 			public String get() {
-				String r = "";
-				Iterator i = ar.iterator();
-				while (i.hasNext()){
-					r = (String)i.next();
-				}
-
-				return r;
+				return infiniteIterator.next();
 			}
 		};
 
 		// Create a server socket data source that sends string values every 100mss
-		//consumptionPerUsage, deviceId, householdId
+		//consumptionPerUsage, deviceId, householdId, readyState
 		ServerSocketSource dataSource = new ServerSocketSource(s, () -> 100);
 
 
