@@ -54,6 +54,11 @@ public class SumoStreamingDemo {
 				String regionID = (String) jsonObject.get("region_id").toString(); //save region id
 				JSONArray devices = (JSONArray) jsonObject.get("devices");//device list of one household
 
+				int solarpanelMax = (int) jsonObject.get("solarpanelMax"); //max production of a solarpanel at best conditions
+				JSONArray solarProductionArray = (JSONArray) jsonObject.get("solarpanelProduction");
+
+				//get data from devices
+				ArrayList<String> deviceMessages = new ArrayList<>();
 				for (Object aDevice : devices) {
 					JSONObject mDevice = (JSONObject) aDevice; //one device
 					String deviceID = (String) mDevice.get("id"); //save device id
@@ -62,8 +67,26 @@ public class SumoStreamingDemo {
 					String consumptionPerUsage = (String) mDevice.get("consumptionPerUsage").toString();
 
 					String currentDeviceMessage = "regionID=" + regionID + ",householdID=" + householdID + ",deviceID=" + deviceID + ",readystate=" + readyState.toString() + ",consumption=" + consumptionPerUsage + ",duration=" + duration;
-					tempHousehold.deviceMessages.add(currentDeviceMessage);
+					deviceMessages.add(currentDeviceMessage);
 				}
+
+				//get data from solarpanels
+				ArrayList<String> solarMessages = new ArrayList<>();
+				for(Object temp : solarProductionArray){
+					JSONObject solarDataPoint = (JSONObject) temp;
+					int solarDatasetCounter = (int)solarDataPoint.get("counter");
+					String timeStamp = (String) solarDataPoint.get("timestamp");
+					double watts = (Double) solarDataPoint.get("watt");
+					String currentSolarMessage = "regionID=" + regionID + ",householdID=" + householdID + ",maxoutput="+solarpanelMax+",counter="+solarDatasetCounter+",timestamp="+timeStamp+",watt:"+watts;
+					solarMessages.add(currentSolarMessage);
+				}
+
+				// TODO: 27.07.2016 If we have time we should change to an intelligent way for mixing both datasets
+				//mix solar and device data
+				tempHousehold.deviceMessages.addAll(deviceMessages);
+				tempHousehold.deviceMessages.addAll(solarMessages);
+
+
 				houseHolds.add(tempHousehold);
 			}
 
@@ -104,7 +127,7 @@ public class SumoStreamingDemo {
 
 				//return null if there is no more data available
 				if (!iterator.hasNext()) {
-					log.info("Streaming of mock data for this household finished.");
+					log.info("Streaming finished!");
 					return null;
 				}
 
@@ -132,6 +155,10 @@ public class SumoStreamingDemo {
 		//do perform
 		//prepare key value pairs
 
+		//differentiate between device and solarpanel data
+			// TODO: 27.07.2016 hier aufgehört
+		//JavaPairDStream<String, String>   lines.filter((Function<String, Boolean>) s -> s.contains("maxoutput"));
+			
 
 		//"regionID=" + regionID + ",householdID=" + householdID + ",deviceID=" + deviceID + ",readystate=" + readyState.toString() + ",consumption=" + consumptionPerUsage + "duration=" + duration
 		@SuppressWarnings("resource")
@@ -142,7 +169,7 @@ public class SumoStreamingDemo {
 			return new Tuple2<>(keyValueMap.get("householdID"), keyValueMap);
 		});
 
-		//check if entity is switchable -> means that its a device
+		//we are only interested in devices that are switchable
 			JavaPairDStream<String, Map<String, String>> devices = mappedLines.filter(new Function<Tuple2<String, Map<String, String>>, Boolean>() {
 			@Override
 			public Boolean call(Tuple2<String, Map<String, String>> stringMapTuple2) throws Exception {
