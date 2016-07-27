@@ -157,7 +157,9 @@ public class SumoStreamingDemo {
 
 		//differentiate between device and solarpanel data
 		//JavaPairDStream<String, String>   lines.filter((Function<String, Boolean>) s -> s.contains("maxoutput"));
-			
+
+		//show line
+		lines.print();
 
 		//"regionID=" + regionID + ",householdID=" + householdID + ",deviceID=" + deviceID + ",readystate=" + readyState.toString() + ",consumption=" + consumptionPerUsage + "duration=" + duration
 		@SuppressWarnings("resource")

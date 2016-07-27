@@ -52,7 +52,7 @@ public class ServerSocketSource<T> {
 							out.close();
 							break;
 						}
-						System.out.println("Message: " +x);
+						//System.out.println("Message: " +x);
 						out.println(x);
 						out.flush();
 						if (millisToSleep != null)
