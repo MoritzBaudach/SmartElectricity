@@ -39,7 +39,7 @@ public class Controller {
         }
     }
 
-    public void addHousehold(Household object) throws AlreadyInDatasetException {
+    public void addHousehold(Household object) {
         synchronized(this.households){
             if(this.findHousehold(object.getId())==null){
                 this.households.add(object);
@@ -75,12 +75,12 @@ public class Controller {
     public void increaseUpdateCounter(){
         this.updateCounter++;
 
-        if(updateCounter>=9){
+        if(updateCounter>=3){
             decodeHashMap();
             this.data.clear();
         }
 
-        if(updateCounter>=20){
+        if(updateCounter>=10){
             turnOnConsumer();
 
             //just some printing to the console
@@ -116,11 +116,21 @@ public class Controller {
             Double value = Double.parseDouble((String)entry.getValue());
 
             if(!key.contains("_")){
+                if(findHousehold(key)==null){
+                    addHousehold(new Household(key));
+                }
                 findHousehold(key).setProduction(value);
             }else {
                 String [] subStrings = key.split("_");
+                if(findHousehold(subStrings[0])==null){
+                    addHousehold(new Household(subStrings[0]));
+                }
                 Household household = findHousehold(subStrings[0]);
-                household.addDevice(subStrings[1], value);
+                if(household.findDevice(subStrings[1])!=null){
+                    household.findDevice(subStrings[1]).setEnergyConsumption(value);
+                }else{
+                    household.addDevice(subStrings[1], value);
+                }
             }
 
         }
