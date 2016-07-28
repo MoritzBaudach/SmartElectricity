@@ -27,6 +27,7 @@ import scala.Tuple2;
 
 public class ElectricityStreamingDemo {
 	private static final String host = "localhost";
+	private static ArrayList<String> allMessages = new ArrayList<>();
 
 	public static void main(String[] args) throws Exception {
 		Logging.setLoggingDefaults();
@@ -49,9 +50,6 @@ public class ElectricityStreamingDemo {
 				String householdID = (String) jsonObject.get("household_id"); //save household id
 				String regionID = (String) jsonObject.get("region_id").toString(); //save region id
 				JSONArray devices = (JSONArray) jsonObject.get("devices");//device list of one household
-
-                Household tempHousehold = new Household(householdID);
-				Controller.getInstance().addHousehold(tempHousehold);
 
 
 				int solarpanelMax = ((Long)jsonObject.get("solarpanelMax")).intValue(); //max production of a solarpanel at best conditions
@@ -105,14 +103,14 @@ public class ElectricityStreamingDemo {
 					for(int i = 0; i<solarMessages.size();i++){
 						int deviceEndCount = deviceCount+allDeviceMessages.size();
 						while(deviceCount<deviceEndCount){
-							tempHousehold.deviceMessages.add(deviceMessages.get(deviceCount));
+							allMessages.add(deviceMessages.get(deviceCount));
 							deviceCount++;
 						}
-						tempHousehold.deviceMessages.add(solarMessages.get(i));
+						allMessages.add(solarMessages.get(i));
 					}
 
 					//add the rest to the array
-					tempHousehold.deviceMessages.addAll(deviceMessages.subList(solarMessages.size(),deviceMessages.size()));
+					allMessages.addAll(deviceMessages.subList(solarMessages.size(),deviceMessages.size()));
 
 
 				}else{
@@ -122,14 +120,14 @@ public class ElectricityStreamingDemo {
 					for(int i = 0; i<deviceMessages.size();i++){
 						int deviceEndCount = deviceCount+allDeviceMessages.size();
 						while(deviceCount<deviceEndCount){
-							tempHousehold.deviceMessages.add(deviceMessages.get(deviceCount));
+							allMessages.add(deviceMessages.get(deviceCount));
 							deviceCount++;
 						}
-						tempHousehold.deviceMessages.add(solarMessages.get(i));
+						allMessages.add(solarMessages.get(i));
 					}
 
 					//add the rest to the array
-					tempHousehold.deviceMessages.addAll(solarMessages.subList(deviceMessages.size(),solarMessages.size()));
+					allMessages.addAll(solarMessages.subList(deviceMessages.size(),solarMessages.size()));
 				}
 			}
 
@@ -160,13 +158,7 @@ public class ElectricityStreamingDemo {
 
 			//single thread sending
 
-			//combine all messages into one arraylist
-			ArrayList<String> messages = new ArrayList<>();
-			for (Household tempHouseHold : Controller.getInstance().getHouseholds()) {
-				messages.addAll(tempHouseHold.deviceMessages);
-			}
-
-			Iterator iterator = messages.iterator();
+			Iterator iterator = allMessages.iterator();
 			//create sending object
 
 			ServerSocketSource dataSource = new ServerSocketSource(()->{
@@ -180,7 +172,7 @@ public class ElectricityStreamingDemo {
 				// Read the next line
 				return (String) iterator.next();
 
-			},()->100);
+			},()->10);
 
 
             //get data

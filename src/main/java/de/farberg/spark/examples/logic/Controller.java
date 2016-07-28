@@ -126,7 +126,7 @@ public class Controller {
         }
     }
 
-
+    //logic for turning on devices -> later in depth
     public void turnOnConsumer(){
         for(Household household : this.households){
 
