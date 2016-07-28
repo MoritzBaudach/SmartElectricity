@@ -1,6 +1,7 @@
 package de.farberg.spark.examples.logic;
 
 import de.farberg.spark.examples.exceptions.AlreadyInDatasetException;
+import org.json.simple.parser.JSONParser;
 
 import java.util.ArrayList;
 import java.util.Map;
