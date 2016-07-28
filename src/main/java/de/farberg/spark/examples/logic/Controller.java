@@ -127,7 +127,8 @@ public class Controller {
                 }
                 Household household = findHousehold(subStrings[0]);
                 if(household.findDevice(subStrings[1])!=null){
-                    household.findDevice(subStrings[1]).setEnergyConsumption(value);
+                    //household.findDevice(subStrings[1]).setEnergyConsumption(value);
+                    //do nothing
                 }else{
                     household.addDevice(subStrings[1], value);
                 }
@@ -144,28 +145,22 @@ public class Controller {
             if(household.getProduction()!=null) {
                 double availableEnergy = household.getProduction();
 
-                //subtract all energy needed from currently running devices
-                for (Device temp : household.getDevicesInHousehold()){
-                    if(temp.isOn()){
-                        availableEnergy-=temp.getEnergyConsumption();
-                    }
-                }
 
-                //logic for turning on a device an condition to terminate isOn state
-                for(Device device : household.getDevicesInHousehold()){
-                    if(!device.getWasOn()){
-                    if(!device.isOn()){
-                        if((availableEnergy-device.getEnergyConsumption())>=0){
-                            availableEnergy -=device.getEnergyConsumption();
-                            device.switchState();
-                            device.setEndCount(this.getUpdateCounter()+25);
-                        }}else {
-                        if (device.getEndCount() == getUpdateCounter()) {
-                            device.switchState();
-                            device.switchWasOn();
-                            device.setEnergyConsumption(0);
+                //if we can´t statisfy a user in a whole --> consume the rest of the energy
+
+                if(availableEnergy>=0){
+                    for(Device consumer : household.getDevicesInHousehold()){
+                            if(consumer.getEnergyConsumption()>=0){
+                                if(availableEnergy>consumer.getEnergyConsumption()){
+                                    availableEnergy-=consumer.getEnergyConsumption();
+                                    consumer.consumeEnergy(consumer.getEnergyConsumption());
+                                }else{
+                                    consumer.consumeEnergy(availableEnergy);
+                                    availableEnergy=0;
+
+                                }
+
                         }
-                    }
                     }
                 }
             }

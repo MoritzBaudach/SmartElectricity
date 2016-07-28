@@ -172,14 +172,14 @@ public class ElectricityStreamingDemo {
 				// Read the next line
 				return (String) iterator.next();
 
-			},()->40);
+			},()->150);
 
 
             //get data
 
 		// Create the context with a 1 second batch size
 		SparkConf sparkConf = new SparkConf().setAppName("JavaNetworkWordCount").setMaster("local[2]");
-		JavaStreamingContext ssc = new JavaStreamingContext(sparkConf, Durations.milliseconds(750));
+		JavaStreamingContext ssc = new JavaStreamingContext(sparkConf, Durations.milliseconds(1000));
 
 
 		//assure that port is already set before listening to the port
