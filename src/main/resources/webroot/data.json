@@ -1,0 +1,8 @@
+[
+  {"letter":"Solarpaneljson","frequency":3427,"online":"#d3d3d3"},
+  {"letter":"Device1","frequency":789,"online":"#ff0000"},
+  {"letter":"Device2","frequency":1500,"online":"#ff0000"},
+  {"letter":"Device3","frequency":275,"online":"#ff0000"},
+  {"letter":"Device4","frequency":987,"online":"#00ff00"},
+  {"letter":"Device5","frequency":1348,"online":"#00ff00"}
+]
