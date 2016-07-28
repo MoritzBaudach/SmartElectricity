@@ -15,6 +15,11 @@ Before cloning this repository, be sure to enable automatic conversion of CRLF/L
 
 We have used Mockaroo to generate the mock data we needed for testing. You can generate your own and download it at https://www.mockaroo.com/dd037ce0. The mockData file is located in the src/main/resources/webroot folder.
 
+Video
+=====
+To view video, click the following link:
+https://htmlpreview.github.io/?https://github.com/MoritzKrischke/SmartElectricity/blob/master/video.html
+
 License
 ======
 This project is published unter the Creative Commons Attribution 4.0 International License (https://creativecommons.org/licenses/by/4.0/)
