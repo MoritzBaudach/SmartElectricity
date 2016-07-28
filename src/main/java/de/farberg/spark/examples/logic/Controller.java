@@ -23,12 +23,13 @@ public class Controller {
     private int updateCounter;
     public ConcurrentHashMap<String,Object> data;
 
+    //constructor
     public Controller(){
         data=new ConcurrentHashMap();
         households = new ArrayList<>();
     }
 
-    //singleton for doing operations
+    //singleton -> there is just a single instance
     public static Controller getInstance(){
         synchronized(lock){
             if(instance==null){
@@ -69,6 +70,8 @@ public class Controller {
         return this.households;
     }
 
+    //method that counts all the events happend
+    //adds printing messages to console
     public void increaseUpdateCounter(){
         this.updateCounter++;
 
@@ -79,7 +82,25 @@ public class Controller {
 
         if(updateCounter>=20){
             turnOnConsumer();
+
+            //just some printing to the console
+            System.out.println("\n\n\n\nDevice 0:");
             System.out.println(requestDevicesAndConsumption(0));
+            System.out.println("\n\n");
+
+            System.out.println("Device 1:");
+            System.out.println(requestDevicesAndConsumption(1));
+            System.out.println("\n\n");
+
+            System.out.println("Device 2:");
+            System.out.println(requestDevicesAndConsumption(2));
+            System.out.println("\n\n");
+
+            System.out.println("Device 3:");
+            System.out.println(requestDevicesAndConsumption(3));
+
+            System.out.println("\n\nEvents computed: "+getUpdateCounter());
+
         }
     }
 
@@ -87,6 +108,7 @@ public class Controller {
         return this.updateCounter;
     }
 
+    //update java objects with event data
     public void decodeHashMap(){
         for(Map.Entry<String, Object> entry : this.data.entrySet()){
             //get key and value
@@ -104,6 +126,7 @@ public class Controller {
         }
     }
 
+
     public void turnOnConsumer(){
         for(Household household : this.households){
 
@@ -111,16 +134,34 @@ public class Controller {
             if(household.getProduction()!=null) {
                 double availableEnergy = household.getProduction();
 
+                //subtract all energy needed from currently running devices
+                for (Device temp : household.getDevicesInHousehold()){
+                    if(temp.isOn()){
+                        availableEnergy-=temp.getEnergyConsumption();
+                    }
+                }
+
+                //logic for turning on a device an condition to terminate isOn state
                 for(Device device : household.getDevicesInHousehold()){
+                    if(!device.getWasOn()){
                     if(!device.isOn()){
                         if((availableEnergy-device.getEnergyConsumption())>=0){
                             availableEnergy -=device.getEnergyConsumption();
                             device.switchState();
-                        }}
+                            device.setEndCount(this.getUpdateCounter()+25);
+                        }}else {
+                        if (device.getEndCount() == getUpdateCounter()) {
+                            device.switchState();
+                            device.switchWasOn();
+                            device.setEnergyConsumption(0);
+                        }
+                    }
+                    }
                 }
             }
         }
     }
+
 
 /*
     public JSONObject requestDevicesAndConsumption(int index){
@@ -163,6 +204,7 @@ public class Controller {
         }
         */
 
+        //method that returns data to a device specified by an index
         public String requestDevicesAndConsumption(int index){
             String result ="";
 

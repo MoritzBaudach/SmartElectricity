@@ -8,6 +8,9 @@ public class Device {
     private String id;
     private double energyConsumption;
     private boolean isOn;
+    private boolean wasOn;
+    private boolean transitionState;
+    private int endCount;
 
     public Device(String id, double energyConsumption){
         this.setId(id);
@@ -40,6 +43,24 @@ public class Device {
             isOn=false;
         }else{
             isOn=true;
-        }
+        }}
+
+
+    public void setEndCount(int endCount){
+        this.endCount=endCount;
     }
-}
+
+    public int getEndCount(){
+        return this.endCount;
+    }
+
+    public boolean getWasOn(){
+        return this.wasOn;
+    }
+
+    public void switchWasOn(){
+        if(wasOn){
+            wasOn=false;
+        }else{
+            wasOn=true;
+        }}}

@@ -284,7 +284,6 @@ public class ElectricityStreamingDemo {
                rdd.foreach((k)->{
                	Controller.getInstance().data.put(k._1, k._2);
 				Controller.getInstance().increaseUpdateCounter();
-				   System.out.println(Controller.getInstance().getUpdateCounter()+" Values updated");
 			   });
             });
 
