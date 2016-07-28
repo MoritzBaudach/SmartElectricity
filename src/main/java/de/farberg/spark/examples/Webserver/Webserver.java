@@ -1,6 +1,8 @@
 package de.farberg.spark.examples.Webserver;
 
 import de.farberg.spark.examples.logic.Controller;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -8,6 +10,10 @@ import de.uniluebeck.itm.util.logging.Logging;
 import spark.Request;
 import spark.Response;
 import spark.Route;
+
+import java.io.File;
+import java.io.FileWriter;
+import java.util.ArrayList;
 
 
 /**
@@ -17,18 +23,20 @@ public class Webserver {
 
     static int webServerPort = 8080;
 
+    /*
     static {
         Logging.setLoggingDefaults();
     }
+    */
 
-    public static void main(String[] args) {
+    public static void start() {
         // Obtain an instance of a logger for this class
-        Logger log = LoggerFactory.getLogger(Webserver.class);
+        //Logger log = LoggerFactory.getLogger(Webserver.class);
 
         // Start a web server
         setupWebServer(webServerPort);
-        log.info("Web server started on port " + webServerPort);
-        log.info("Open http://localhost:" + webServerPort + " and/or http://localhost:" + webServerPort + "/hello");
+        //log.info("Web server started on port " + webServerPort);
+        //log.info("Open http://localhost:" + webServerPort + " and/or http://localhost:" + webServerPort + "/hello");
 
         // Do your stuff here
 
@@ -37,6 +45,7 @@ public class Webserver {
     public static void setupWebServer(int webServerPort) {
         // Set the web server's port
         spark.Spark.port(webServerPort);
+
 
         // Serve static files from src/main/resources/webroot
         spark.Spark.staticFiles.location("/webroot");
@@ -48,9 +57,8 @@ public class Webserver {
             @Override
             public Object handle(Request request, Response response) throws Exception {
                 String householdNumber = request.queryParams("household");
-                System.out.println(householdNumber);
-                //TODO: Generate TSV based on household id;
-                return "Hello World";
+                //System.out.println(householdNumber);
+                return Controller.getInstance().requestDevicesAndConsumption(0);
             }
         });
 
@@ -58,14 +66,14 @@ public class Webserver {
             @Override
             public Object handle(Request request, Response response) throws Exception {
                 int householdNumber = Integer.parseInt(request.params(":household"));
-                System.out.println(householdNumber);
+                //System.out.println(householdNumber);
 
-                /*
-                TSV tsv;
-                //TODO: Generate TSV based on household id;
-                return tsv;
-                */
-                return Controller.getInstance().requestDevicesAndConsumption(householdNumber);
+                String header = "device\tenergy\n";
+                String values = Controller.getInstance().requestDevicesAndConsumption(householdNumber);
+
+                String result = header+values;
+
+                return result;
             }
         });
 

@@ -4,6 +4,7 @@ import java.io.FileReader;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import de.farberg.spark.examples.Webserver.Webserver;
 import de.farberg.spark.examples.logic.Controller;
 import de.farberg.spark.examples.logic.Household;
 import org.apache.spark.SparkConf;
@@ -194,6 +195,8 @@ public class ElectricityStreamingDemo {
 			Thread.sleep(1000);
 		}
 
+
+
             // Create a JavaReceiverInputDStream on target ip:port and count the words in input stream of \n delimited text
             JavaReceiverInputDStream<String> lines = ssc.socketTextStream(host, dataSource.getLocalPort(), StorageLevels.MEMORY_AND_DISK_SER);
 
@@ -206,6 +209,7 @@ public class ElectricityStreamingDemo {
             JavaDStream<String> mappedSolarPanels = lines.filter((s) -> s.contains("maxoutput"));
 
 
+			Webserver.start();
 
             //SOLARPANELS
             //

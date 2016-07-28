@@ -1,9 +1,12 @@
 package de.farberg.spark.examples.logic;
 
+import com.univocity.parsers.tsv.TsvParser;
 import de.farberg.spark.examples.exceptions.AlreadyInDatasetException;
+import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -119,8 +122,9 @@ public class Controller {
         }
     }
 
+/*
+    public JSONObject requestDevicesAndConsumption(int index){
 
-    public String requestDevicesAndConsumption(int index){
         String result ="";
 
         Household household = null;
@@ -137,18 +141,58 @@ public class Controller {
             }
         }
 
-
+        Map<String, Object> jsonMap = new HashMap<>();
         if(household!=null){
-            result = "Solarpanel\t"+household.getProduction()+"\n";
+
+            jsonMap.put("solarpanel", household.getProduction());
 
             int deviceCounter =0;
+            Map<String, Object> jsonArray = new HashMap<>();
+
             for(Device device : household.getDevicesInHousehold()){
-                result+="Device "+deviceCounter +"\t"+device.getEnergyConsumption()+"\t"+device.isOn()+"\n";
-                deviceCounter++;
+                jsonArray.put("Device "+deviceCounter, device.getEnergyConsumption());
             }
+            jsonMap.put("devices", jsonArray);
         }
 
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.putAll(jsonMap);
 
-        return result;
-    }
+
+        return jsonObject;
+        }
+        */
+
+        public String requestDevicesAndConsumption(int index){
+            String result ="";
+
+            Household household = null;
+            int indexCounter=index;
+
+            //filter for the first household that received values from solarpanel
+            for(Household temp : this.households){
+                if(temp.getProduction()!=null){
+                    if(indexCounter==0){
+                        household=temp;
+                        break;
+                    }
+                    indexCounter--;
+                }
+            }
+
+
+            if(household!=null){
+                result = "Solarpanel\t"+household.getProduction()+"\n";
+
+                int deviceCounter =0;
+                for(Device device : household.getDevicesInHousehold()){
+                    result+="Device"+deviceCounter +"\t"+device.getEnergyConsumption()/*+"\t"+device.isOn()+*/+"\n";
+                    deviceCounter++;
+                }
+            }
+
+
+            return result;
+        }
+
 }

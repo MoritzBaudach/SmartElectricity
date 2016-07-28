@@ -28,6 +28,7 @@
 svg{
        display: block;
        margin: auto;
+       top: 1200px;
 }
 </style>
     <meta http-equiv="cache-control" content="max-age=0" />
@@ -58,10 +59,10 @@ svg{
                 <li class="active"><a href="index.html">Production&Consumption</a></li>
             </ul>
             <select name="Choose Household" onchange="myFunction(this)">
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
+                <option value="1">0</option>
+                <option value="2">1</option>
+                <option value="3">2</option>
+                <option value="4">3</option>
             </select>
         </div><!-- /.navbar-collapse -->
     </div><!-- /.container-fluid -->
@@ -123,13 +124,13 @@ svg.append("g")
 
 // d3.tsv is a wrapper around XMLHTTPRequest, returns array of arrays (?) for a TSV file
 // type function transforms strings to numbers, dates, etc.
-d3.tsv("data.tsv",type, function(error, data) {
+d3.tsv("http://localhost:8080/household/0", function(error, data) {
   replay(data);
 });
 
 function type(d) {
   // + coerces to a Number from a String (or anything)
-  d.frequency = +d.frequency;
+  d.energy = +d.energy;
   return d;
 }
 
@@ -146,10 +147,10 @@ function replay(data) {
 }
 
 function draw(data) {
-  // measure the domain (for x, unique letters) (for y [0,maxFrequency])
+  // measure the domain (for x, unique devices) (for y [0,maxenergy])
   // now the scales are finished and usable
-  x.domain(data.map(function(d) { return d.letter; }));
-  y.domain([0, d3.max(data, function(d) { return d.frequency; })]);
+  x.domain(data.map(function(d) { return d.device; }));
+  y.domain([0, d3.max(data, function(d) { return d.energy; })]);
 
   // another g element, this time to move the origin to the bottom of the svg element
   // someSelection.call(thing) is roughly equivalent to thing(someSelection[i])
@@ -161,7 +162,7 @@ function draw(data) {
   svg.select(".y.axis").transition().duration(500).call(yAxis)
 
   // THIS IS THE ACTUAL WORK!
-  var bars = svg.selectAll(".bar").data(data, function(d) { return d.letter; }) // (data) is an array/iterable thing, second argument is an ID generator function
+  var bars = svg.selectAll(".bar").data(data, function(d) { return d.device; }) // (data) is an array/iterable thing, second argument is an ID generator function
 
   bars.exit()
     .transition()
@@ -181,19 +182,19 @@ function draw(data) {
     } );
 
   // the "UPDATE" set:
-  bars.transition().duration(300).attr("x", function(d) { return x(d.letter); }) // (d) is one item from the data array, x is the scale object from above
+  bars.transition().duration(300).attr("x", function(d) { return x(d.device); }) // (d) is one item from the data array, x is the scale object from above
     .attr("width", x.rangeBand()) // constant, so no callback function(d) here
-    .attr("y", function(d) { return y(d.frequency); })
-    .attr("height", function(d) { return height - y(d.frequency); }); // flip the height, because y's domain is bottom up, but SVG renders top down
+    .attr("y", function(d) { return y(d.energy); })
+    .attr("height", function(d) { return height - y(d.energy); }); // flip the height, because y's domain is bottom up, but SVG renders top down
 
 }
-function update(houseNumber) {
-    var xmlHttp = new XMLHttpRequest();
-	xmlHttp.open( "GET", "http://localhost:8080/tsv", false ); // false for synchronous request
-	xmlHttp.send();
-    console.log("update");
+function update(id) {
+    //var xmlHttp = new XMLHttpRequest();
+	//xmlHttp.open( "GET", "http://localhost:8080/tsv", false ); // false for synchronous request
+	//xmlHttp.send();
+    //console.log("update");
        svg.selectAll("rect").remove();
-       d3.tsv("http://localhost:8080/household/"+value,type, function(error, data) {
+       d3.tsv("http://localhost:8080/household/" + id, function(error, data) {
          replay(data);
        });
 };
@@ -201,8 +202,8 @@ function update(houseNumber) {
 
 
 window.setInterval(function(){
-       var xmlHttp = new XMLHttpRequest();
-       xmlHttp.open( "GET", "http://localhost:8080/household/", false ); // false for synchronous request
+       //var xmlHttp = new XMLHttpRequest();
+       //xmlHttp.open( "GET", "http://localhost:8080/household/", false ); // false for synchronous request
   update();
 }, 3000);
 
