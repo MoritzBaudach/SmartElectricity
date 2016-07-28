@@ -10,15 +10,14 @@ import java.util.ArrayList;
 public class Household {
 
     private String id;
-    private String regionId;
+    private Double production;
 
     private ArrayList<Device> devicesInHousehold;
 
     public static ArrayList<String> deviceMessages;
 
-    public Household(String id, String regionId){
+    public Household(String id){
         setId(id);
-        setRegionId(regionId);
 
         //initialize Arrays
         devicesInHousehold = new ArrayList<>();
@@ -35,22 +34,12 @@ public class Household {
     }
 
 
-    public String getRegionId() {
-        return this.regionId;
-    }
-
-    public void setRegionId(String id) {
-        this.id = id;
-    }
-
-
-
-    public void addDevice(Device device) throws AlreadyInDatasetException{
+    public void addDevice(String id, double consumption) {
         synchronized(this.devicesInHousehold){
-            if(findDevice(device.getId())==null){
-                this.devicesInHousehold.add(device);
+            if(findDevice(id)==null){
+                this.devicesInHousehold.add(new Device(id,consumption));
             }else{
-                throw new AlreadyInDatasetException();
+                //throw new AlreadyInDatasetException();
             }
         }
     }
@@ -76,4 +65,17 @@ public class Household {
         }
         return result;
     }
+
+    public ArrayList<Device> getDevicesInHousehold(){
+        return this.devicesInHousehold;
+    }
+
+    public void setProduction(Double energyAvailable){
+        this.production = energyAvailable;
+    }
+
+    public Double getProduction(){
+        return this.production;
+    }
+
 }

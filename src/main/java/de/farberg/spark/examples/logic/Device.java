@@ -6,15 +6,13 @@ package de.farberg.spark.examples.logic;
 public class Device {
 
     private String id;
-    private int energyConsumption;
-    private boolean ready;
-    private boolean finished;
+    private double energyConsumption;
+    private boolean isOn;
 
-    public Device(String id, int energyConsumption, boolean ready){
+    public Device(String id, double energyConsumption){
         this.setId(id);
         this.setEnergyConsumption(energyConsumption);
-        this.setReady(ready);
-        this.setFinished(false);
+        isOn=false;
     }
 
     public String getId() {
@@ -25,27 +23,23 @@ public class Device {
         this.id = id;
     }
 
-    public int getEnergyConsumption() {
+    public double getEnergyConsumption() {
         return energyConsumption;
     }
 
-    public void setEnergyConsumption(int energyConsumption) {
+    public void setEnergyConsumption(double energyConsumption) {
         this.energyConsumption = energyConsumption;
     }
 
-    public boolean isReady() {
-        return ready;
+    public boolean isOn() {
+        return isOn;
     }
 
-    public void setReady(boolean ready) {
-        this.ready = ready;
-    }
-
-    public boolean isFinished() {
-        return finished;
-    }
-
-    public void setFinished(boolean finished) {
-        this.finished = finished;
+    public void switchState() {
+        if(isOn){
+            isOn=false;
+        }else{
+            isOn=true;
+        }
     }
 }

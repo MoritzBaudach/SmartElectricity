@@ -1,24 +1,16 @@
 package de.farberg.spark.examples.streaming;
 
-import java.io.File;
 import java.io.FileReader;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import com.google.common.base.*;
-import com.google.common.base.Optional;
-import com.google.common.io.Files;
 import de.farberg.spark.examples.logic.Controller;
 import de.farberg.spark.examples.logic.Household;
 import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.StorageLevels;
 import org.apache.spark.api.java.function.*;
 import org.apache.spark.api.java.function.Function;
-import org.apache.spark.rdd.RDD;
 import org.apache.spark.streaming.Durations;
-import org.apache.spark.streaming.Time;
 import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaPairDStream;
 import org.apache.spark.streaming.api.java.JavaReceiverInputDStream;
@@ -32,12 +24,12 @@ import org.slf4j.LoggerFactory;
 import de.uniluebeck.itm.util.logging.Logging;
 import scala.Tuple2;
 
-public class SumoStreamingDemo {
+public class ElectricityStreamingDemo {
 	private static final String host = "localhost";
 
 	public static void main(String[] args) throws Exception {
 		Logging.setLoggingDefaults();
-		Logger log = LoggerFactory.getLogger(SumoStreamingDemo.class);
+		Logger log = LoggerFactory.getLogger(ElectricityStreamingDemo.class);
 
 		String fileName = "src/main/resources/mockData.json";
 
@@ -57,7 +49,9 @@ public class SumoStreamingDemo {
 				String regionID = (String) jsonObject.get("region_id").toString(); //save region id
 				JSONArray devices = (JSONArray) jsonObject.get("devices");//device list of one household
 
-                Household tempHousehold = new Household(householdID, regionID);
+                Household tempHousehold = new Household(householdID);
+				Controller.getInstance().addHousehold(tempHousehold);
+
 
 				int solarpanelMax = ((Long)jsonObject.get("solarpanelMax")).intValue(); //max production of a solarpanel at best conditions
 				JSONArray solarProductionArray = (JSONArray) jsonObject.get("solarpanelProduction");
@@ -136,9 +130,6 @@ public class SumoStreamingDemo {
 					//add the rest to the array
 					tempHousehold.deviceMessages.addAll(solarMessages.subList(deviceMessages.size(),solarMessages.size()));
 				}
-
-
-                Controller.households.add(tempHousehold);
 			}
 
 			System.out.println("Finished preparation of mock data");
@@ -170,12 +161,13 @@ public class SumoStreamingDemo {
 
 			//combine all messages into one arraylist
 			ArrayList<String> messages = new ArrayList<>();
-			for (Household tempHouseHold : Controller.households) {
+			for (Household tempHouseHold : Controller.getInstance().getHouseholds()) {
 				messages.addAll(tempHouseHold.deviceMessages);
 			}
 
 			Iterator iterator = messages.iterator();
 			//create sending object
+
 			ServerSocketSource dataSource = new ServerSocketSource(()->{
 
 				//return null if there is no more data available
@@ -277,15 +269,6 @@ public class SumoStreamingDemo {
             //Unite both Streams
             JavaPairDStream deviceAndSolarStream = latestDevice.union(latestSolarPanel);
 
-            //we just keep the last state
-			/*
-            JavaPairDStream<String, Double> updateStream = deviceAndSolarStream.updateStateByKey(new Function2<List<Double>, Optional<Double>, Optional<Double>>() {
-				@Override
-				public Optional<Double> call(List<Double> list, Optional<Double> optional) throws Exception {
-					return optional;
-				}
-			});*/
-
 			JavaPairDStream<String, Double> dataStream = deviceAndSolarStream;
 
 			dataStream.print();
@@ -295,28 +278,11 @@ public class SumoStreamingDemo {
             //updatefunction
             dataStream.foreachRDD((rdd)-> {
                rdd.foreach((k)->{
-                   System.out.println("Ein Update!");
-                   System.out.println(k._2);
-               });
+               	Controller.getInstance().data.put(k._1, k._2);
+				Controller.getInstance().increaseUpdateCounter();
+				   System.out.println(Controller.getInstance().getUpdateCounter()+" Values updated");
+			   });
             });
-
-
-
-            //save updates to the state
-
-
-
-            /*
-
-            stateStream.updateStateByKey((list,optional)->{
-                return null;
-            });
-
-
-            */
-
-
-
 
             //clean up
             //deviceAndSolarStream.print();
