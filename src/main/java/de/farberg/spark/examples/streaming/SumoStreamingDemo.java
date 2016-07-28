@@ -196,8 +196,6 @@ public class SumoStreamingDemo {
 		SparkConf sparkConf = new SparkConf().setAppName("JavaNetworkWordCount").setMaster("local[2]");
 		JavaStreamingContext ssc = new JavaStreamingContext(sparkConf, Durations.seconds(1));
 
-			ssc.checkpoint(Files.createTempDir().getAbsolutePath());
-
 
 		//assure that port is already set before listening to the port
 		while(!dataSource.isRunning()){
@@ -280,17 +278,22 @@ public class SumoStreamingDemo {
             JavaPairDStream deviceAndSolarStream = latestDevice.union(latestSolarPanel);
 
             //we just keep the last state
+			/*
             JavaPairDStream<String, Double> updateStream = deviceAndSolarStream.updateStateByKey(new Function2<List<Double>, Optional<Double>, Optional<Double>>() {
 				@Override
 				public Optional<Double> call(List<Double> list, Optional<Double> optional) throws Exception {
 					return optional;
 				}
-			});
+			});*/
 
-			updateStream.print();
-            /*
+			JavaPairDStream<String, Double> dataStream = deviceAndSolarStream;
+
+			dataStream.print();
+
+			//updateStream.print();
+
             //updatefunction
-            updateStream.foreachRDD((rdd)-> {
+            dataStream.foreachRDD((rdd)-> {
                rdd.foreach((k)->{
                    System.out.println("Ein Update!");
                    System.out.println(k._2);
@@ -298,7 +301,6 @@ public class SumoStreamingDemo {
             });
 
 
-            */
 
             //save updates to the state
 
